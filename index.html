@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rokid Maps - Turn-by-Turn Navigation on Your AR Glasses</title>
+    <meta name="description" content="Turn-by-turn navigation on your Rokid AR glasses. Your phone handles the heavy lifting, glasses handle the display. Free and open-source.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #00ff88;
+            --primary-dark: #00cc6a;
+            --bg-dark: #0a0a0f;
+            --bg-darker: #050508;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --card-bg: #121218;
+            --gradient: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .cta-btn {
+            background: var(--gradient);
+            color: #000;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            background: var(--bg-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.1) 0%, transparent 70%);
+            z-index: 0;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-features {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .hero-feature i {
+            color: var(--primary);
+        }
+
+        /* Features Section */
+        .section {
+            padding: 6rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 4rem;
+            font-weight: 700;
+        }
+
+        .section-title span {
+            color: var(--primary);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--gradient);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: #000;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            background: var(--bg-darker);
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+            margin-top: 3rem;
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #000;
+            margin: 0 auto 1.5rem;
+        }
+
+        .step h3 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .step p {
+            color: var(--text-muted);
+        }
+
+        /* Architecture Section */
+        .architecture {
+            background: var(--card-bg);
+            padding: 3rem;
+            border-radius: 20px;
+            margin: 3rem 0;
+            text-align: center;
+        }
+
+        .architecture-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+            margin: 2rem 0;
+        }
+
+        .arch-box {
+            background: var(--bg-dark);
+            padding: 2rem;
+            border-radius: 15px;
+            border: 2px solid var(--primary);
+            min-width: 200px;
+        }
+
+        .arch-box h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .arch-box ul {
+            text-align: left;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .arch-box li {
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .arch-box li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+        }
+
+        .arch-arrow {
+            font-size: 2rem;
+            color: var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Features List */
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: var(--card-bg);
+            border-radius: 15px;
+        }
+
+        .feature-item i {
+            color: var(--primary);
+            font-size: 1.2rem;
+            margin-top: 0.2rem;
+        }
+
+        .feature-item h4 {
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .feature-item p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: var(--gradient);
+            padding: 5rem 2rem;
+            text-align: center;
+            border-radius: 30px;
+            margin: 4rem 2rem;
+        }
+
+        .cta-section h2 {
+            font-size: 2.5rem;
+            color: #000;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-section p {
+            color: rgba(0, 0, 0, 0.8);
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .cta-section .cta-btn {
+            background: #000;
+            color: var(--primary);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-darker);
+            padding: 3rem 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-links a {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .architecture-diagram {
+                flex-direction: column;
+            }
+
+            .arch-arrow {
+                transform: rotate(90deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="#" class="logo">
+            <i class="fas fa-glasses"></i>
+            Rokid Maps
+        </a>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#download">Download</a></li>
+        </ul>
+        <a href="https://github.com/chartmann1590/Rokid-Maps" class="cta-btn">
+            <i class="fab fa-github"></i> View on GitHub
+        </a>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Turn-by-Turn Navigation<br>on Your AR Glasses</h1>
+            <p>Your phone handles all the heavy lifting — GPS, route calculations, address search — and streams everything to your glasses over Bluetooth. Get a live map with your route drawn on it, step-by-step directions, and phone notifications, all floating in your field of view.</p>
+            <div class="hero-features">
+                <div class="hero-feature">
+                    <i class="fas fa-check-circle"></i> No API Keys
+                </div>
+                <div class="hero-feature">
+                    <i class="fas fa-check-circle"></i> No Subscriptions
+                </div>
+                <div class="hero-feature">
+                    <i class="fas fa-check-circle"></i> 100% Open Source
+                </div>
+            </div>
+            <a href="https://github.com/chartmann1590/Rokid-Maps" class="cta-btn" style="font-size: 1.1rem; padding: 1rem 2rem;">
+                Get Started <i class="fas fa-arrow-right" style="margin-left: 0.5rem;"></i>
+            </a>
+        </div>
+    </section>
+
+    <section id="how-it-works" class="section how-it-works">
+        <h2 class="section-title">How It <span>Works</span></h2>
+        
+        <div class="architecture">
+            <h3>Bluetooth-Powered Architecture</h3>
+            <p style="color: var(--text-muted); margin-top: 1rem;">Two apps that talk to each other over Bluetooth SPP (Serial Port Profile)</p>
+            
+            <div class="architecture-diagram">
+                <div class="arch-box">
+                    <h3><i class="fas fa-mobile-alt"></i> Phone App</h3>
+                    <ul>
+                        <li>GPS tracking @ 1Hz</li>
+                        <li>OSRM routing</li>
+                        <li>Nominatim search</li>
+                        <li>BT server</li>
+                        <li>A2DP audio</li>
+                    </ul>
+                </div>
+                
+                <div class="arch-arrow">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                
+                <div class="arch-box">
+                    <h3><i class="fas fa-glasses"></i> Glasses App</h3>
+                    <ul>
+                        <li>Live rotating map</li>
+                        <li>Turn-by-turn HUD</li>
+                        <li>Route line overlay</li>
+                        <li>Phone notifications</li>
+                        <li>3 layout modes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Search</h3>
+                <p>Type an address or place name and pick from the results using OpenStreetMap data</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Navigate</h3>
+                <p>Routes are calculated with OSRM. If you go off-route, it automatically recalculates</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Follow</h3>
+                <p>Your glasses show a live rotating map with your route, step-by-step directions, and more</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="section">
+        <h2 class="section-title">Powerful <span>Features</span></h2>
+        
+        <div class="features-list">
+            <div class="feature-item">
+                <i class="fas fa-map-marked-alt"></i>
+                <div>
+                    <h4>Live Map Display</h4>
+                    <p>Rotates with your heading, renders dark-themed tiles with a green HUD overlay</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-directions"></i>
+                <div>
+                    <h4>Turn-by-Turn Directions</h4>
+                    <p>Shows current instruction, maneuver arrow, and distance to next turn</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-route"></i>
+                <div>
+                    <h4>Route Line Overlay</h4>
+                    <p>Your full route drawn on the map with a glowing green line</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-bell"></i>
+                <div>
+                    <h4>Phone Notifications</h4>
+                    <p>Your texts, emails, whatever — they show up on your glasses</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-volume-up"></i>
+                <div>
+                    <h4>Voice Directions</h4>
+                    <p>TTS reads out your turns and routes audio to your glasses via Bluetooth A2DP</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-wifi"></i>
+                <div>
+                    <h4>Tile Proxy</h4>
+                    <p>If glasses don't have Wi-Fi, phone fetches map tiles and sends them over Bluetooth</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-save"></i>
+                <div>
+                    <h4>Save Places</h4>
+                    <p>Found a spot you like? Save it. Long-press to delete</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-sync"></i>
+                <div>
+                    <h4>Over-the-Air Updates</h4>
+                    <p>Push app updates to glasses over Bluetooth without cables or ADB</p>
+                </div>
+            </div>
+            
+            <div class="feature-item">
+                <i class="fas fa-th-large"></i>
+                <div>
+                    <h4>Three Layout Modes</h4>
+                    <p>Full, Corner, or Mini — tap to cycle through display layouts</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2 class="section-title">Free & <span>Open Source</span></h2>
+        
+        <div class="features-grid" style="margin-top: 3rem;">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-map"></i>
+                </div>
+                <h3>OSRM</h3>
+                <p>Routing engine with no API key required. Fast, accurate directions powered by open-source software.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3>Nominatim</h3>
+                <p>Address search powered by OpenStreetMap. No API key, no rate limits, just free location search.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <h3>OpenStreetMap</h3>
+                <p>Map data from the world's largest free and open geographic database (ODbL license).</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <h3>CartoDB</h3>
+                <p>Beautiful dark-themed map tiles (Dark Matter) with a green tint perfect for AR displays (CC BY-SA).</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fab fa-android"></i>
+                </div>
+                <h3>OSMDroid</h3>
+                <p>Android map library that brings it all together with efficient tile management and rendering.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <h3>Open Source</h3>
+                <p>Use it, modify it, build on it. The entire codebase is free and open for everyone.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="download" class="cta-section">
+        <h2>Ready to Navigate?</h2>
+        <p>Get started with Rokid Maps today. Free, open-source, and built with privacy in mind.</p>
+        <a href="https://github.com/chartmann1590/Rokid-Maps" class="cta-btn">
+            <i class="fab fa-github"></i> Get the Code
+        </a>
+    </section>
+
+    <footer>
+        <div class="footer-links">
+            <a href="https://github.com/chartmann1590/Rokid-Maps">
+                <i class="fab fa-github"></i> GitHub Repository
+            </a>
+            <a href="https://github.com/chartmann1590/Rokid-Maps/issues">
+                <i class="fas fa-bug"></i> Report Issues
+            </a>
+            <a href="https://github.com/chartmann1590/Rokid-Maps/blob/master/README.md">
+                <i class="fas fa-book"></i> Documentation
+            </a>
+        </div>
+        <p class="copyright">
+            Rokid Maps © 2026 · Free and Open Source · 
+            <a href="https://github.com/chartmann1590/Rokid-Maps/blob/master/LICENSE">View License</a>
+        </p>
+    </footer>
+</body>
+</html>

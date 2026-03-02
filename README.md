@@ -1,5 +1,7 @@
 # Rokid HUD Maps
 
+**[🌐 Live Demo & Landing Page](https://chartmann1590.github.io/Rokid-Maps/)**
+
 Turn-by-turn navigation on your Rokid AR glasses, powered by your phone.
 
 Your phone handles all the heavy lifting — GPS, route calculations, address search — and streams everything to your glasses over Bluetooth. You get a live map with your route drawn on it, step-by-step directions, and even your phone notifications, all floating in your field of view. No cloud services, no API keys, no subscriptions. It's all free and open-source under the hood.

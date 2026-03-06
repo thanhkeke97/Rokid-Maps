@@ -28,6 +28,8 @@ object ProtocolCodec {
         put(ProtocolConstants.FIELD_BEARING, msg.bearing.toDouble())
         put(ProtocolConstants.FIELD_SPEED, msg.speed.toDouble())
         put(ProtocolConstants.FIELD_ACCURACY, msg.accuracy.toDouble())
+        put(ProtocolConstants.FIELD_SPEED_LIMIT, msg.speedLimitKmh)
+        put(ProtocolConstants.FIELD_DIST_NEXT_STEP, msg.distToNextStep)
     }.toString()
 
     fun encodeRoute(msg: RouteMessage): String = JSONObject().apply {
@@ -67,6 +69,10 @@ object ProtocolCodec {
         put(ProtocolConstants.FIELD_MINI_MAP_STYLE, msg.miniMapStyle)
         put(ProtocolConstants.FIELD_STREAM_NOTIFICATIONS, msg.streamNotifications)
         put(ProtocolConstants.FIELD_SHOW_UPCOMING_STEPS, msg.showUpcomingSteps)
+        put(ProtocolConstants.FIELD_SHOW_TURN_ALERT, msg.showTurnAlert)
+        put(ProtocolConstants.FIELD_TILE_CACHE_SIZE_MB, msg.tileCacheSizeMb)
+        put(ProtocolConstants.FIELD_SHOW_SPEED, msg.showSpeed)
+        put(ProtocolConstants.FIELD_SHOW_SPEED_LIMIT, msg.showSpeedLimit)
     }.toString()
 
     fun encodeWifiCreds(msg: WifiCredsMessage): String = JSONObject().apply {
@@ -130,7 +136,9 @@ object ProtocolCodec {
                         longitude = json.getDouble(ProtocolConstants.FIELD_LONGITUDE),
                         bearing = json.getDouble(ProtocolConstants.FIELD_BEARING).toFloat(),
                         speed = json.getDouble(ProtocolConstants.FIELD_SPEED).toFloat(),
-                        accuracy = json.getDouble(ProtocolConstants.FIELD_ACCURACY).toFloat()
+                        accuracy = json.getDouble(ProtocolConstants.FIELD_ACCURACY).toFloat(),
+                        speedLimitKmh = json.optInt(ProtocolConstants.FIELD_SPEED_LIMIT, -1),
+                        distToNextStep = json.optDouble(ProtocolConstants.FIELD_DIST_NEXT_STEP, -1.0)
                     )
                 )
                 ProtocolConstants.MessageType.ROUTE -> {
@@ -172,7 +180,11 @@ object ProtocolCodec {
                         useMiniMap = json.optBoolean(ProtocolConstants.FIELD_USE_MINI_MAP, false),
                         miniMapStyle = json.optString(ProtocolConstants.FIELD_MINI_MAP_STYLE, "strip"),
                         streamNotifications = json.optBoolean(ProtocolConstants.FIELD_STREAM_NOTIFICATIONS, true),
-                        showUpcomingSteps = json.optBoolean(ProtocolConstants.FIELD_SHOW_UPCOMING_STEPS, false)
+                        showUpcomingSteps = json.optBoolean(ProtocolConstants.FIELD_SHOW_UPCOMING_STEPS, false),
+                        showTurnAlert = json.optBoolean(ProtocolConstants.FIELD_SHOW_TURN_ALERT, false),
+                        tileCacheSizeMb = json.optInt(ProtocolConstants.FIELD_TILE_CACHE_SIZE_MB, 100),
+                        showSpeed = json.optBoolean(ProtocolConstants.FIELD_SHOW_SPEED, true),
+                        showSpeedLimit = json.optBoolean(ProtocolConstants.FIELD_SHOW_SPEED_LIMIT, true)
                     )
                 )
                 ProtocolConstants.MessageType.WIFI_CREDS -> ParsedMessage.WifiCreds(

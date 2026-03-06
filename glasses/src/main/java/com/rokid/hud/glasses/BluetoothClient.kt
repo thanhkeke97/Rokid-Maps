@@ -161,7 +161,9 @@ class BluetoothClient(
                     longitude = parsed.msg.longitude,
                     bearing = parsed.msg.bearing,
                     speed = parsed.msg.speed,
-                    accuracy = parsed.msg.accuracy
+                    accuracy = parsed.msg.accuracy,
+                    speedLimitKmh = parsed.msg.speedLimitKmh,
+                    distToNextStep = parsed.msg.distToNextStep
                 )
             }
             is ParsedMessage.Route -> {
@@ -203,7 +205,11 @@ class BluetoothClient(
                     layoutMode = layoutMode,
                     streamNotifications = parsed.msg.streamNotifications,
                     showUpcomingSteps = parsed.msg.showUpcomingSteps,
-                    notifications = if (!parsed.msg.streamNotifications) emptyList() else currentState.notifications
+                    notifications = if (!parsed.msg.streamNotifications) emptyList() else currentState.notifications,
+                    showTurnAlert = parsed.msg.showTurnAlert,
+                    tileCacheSizeMb = parsed.msg.tileCacheSizeMb,
+                    showSpeed = parsed.msg.showSpeed,
+                    showSpeedLimit = parsed.msg.showSpeedLimit
                 )
             }
             is ParsedMessage.StepsList -> {

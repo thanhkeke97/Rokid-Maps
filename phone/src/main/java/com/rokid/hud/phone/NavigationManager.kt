@@ -18,7 +18,7 @@ class NavigationManager(private val callback: NavigationCallback) {
 
     companion object {
         private const val TAG = "NavManager"
-        private const val STEP_ADVANCE_RADIUS_M = 45.0
+        private const val STEP_ADVANCE_RADIUS_M = 150.0
         private const val OFF_ROUTE_RADIUS_M = 80.0
         private const val REROUTE_COOLDOWN_MS = 15000L
         private const val ARRIVAL_RADIUS_M = 30.0
@@ -132,6 +132,13 @@ class NavigationManager(private val callback: NavigationCallback) {
                 mainHandler.post { callback.onNavigationError(e.message ?: "Route failed") }
             }
         }.start()
+    }
+
+    fun getDistanceToNextStep(lat: Double, lng: Double): Double {
+        if (!isNavigating || steps.isEmpty()) return -1.0
+        val idx = if (currentStepIndex < steps.size - 1) currentStepIndex + 1 else currentStepIndex
+        val step = steps[idx]
+        return haversineM(lat, lng, step.locationLat, step.locationLng)
     }
 
     private fun nearestRouteDistance(lat: Double, lng: Double): Double {

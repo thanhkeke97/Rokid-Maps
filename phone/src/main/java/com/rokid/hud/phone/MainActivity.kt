@@ -46,6 +46,10 @@ class MainActivity : AppCompatActivity() {
         private const val PREF_MINI_MAP_STYLE = "mini_map_style"
         private const val PREF_STREAM_NOTIFICATIONS = "stream_notifications"
         private const val PREF_SHOW_FULL_ROUTE_STEPS = "show_full_route_steps"
+        private const val PREF_TURN_ALERT = "show_turn_alert"
+        private const val PREF_TILE_CACHE_SIZE_MB = "tile_cache_size_mb"
+        private const val PREF_SHOW_SPEED = "show_speed"
+        private const val PREF_SHOW_SPEED_LIMIT = "show_speed_limit"
         private const val PREFS_GLASSES = "rokid_glasses"
         private const val PREFS_HUD = "rokid_hud_prefs"
     }
@@ -100,6 +104,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var notifStatusText: TextView
     private lateinit var btnNotifAccess: Button
     private lateinit var switchStreamNotifications: Switch
+    private lateinit var switchTurnAlert: Switch
+    private lateinit var switchShowSpeed: Switch
+    private lateinit var switchShowSpeedLimit: Switch
+    private lateinit var spinnerCacheSize: Spinner
+    private lateinit var btnClearCache: Button
+    private lateinit var cacheSizeText: TextView
 
     // Managers
     private lateinit var wifiShareManager: WifiShareManager
@@ -135,6 +145,7 @@ class MainActivity : AppCompatActivity() {
             service?.uiCallback = navCallback
             sendCurrentSettings()
             updateStreamingUi()
+            updateCacheSizeText()
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null; bound = false; streaming = false
@@ -252,6 +263,20 @@ class MainActivity : AppCompatActivity() {
         if (savedStyle == "split") radioSplit.isChecked = true else radioStrip.isChecked = true
         miniMapStyleGroup.visibility = if (switchMiniMap.isChecked) View.VISIBLE else View.GONE
         switchStreamNotifications.isChecked = getSharedPreferences(PREFS_HUD, MODE_PRIVATE).getBoolean(PREF_STREAM_NOTIFICATIONS, true)
+
+        switchTurnAlert = findViewById(R.id.switchTurnAlert)
+        switchTurnAlert.isChecked = getSharedPreferences(PREFS_HUD, MODE_PRIVATE).getBoolean(PREF_TURN_ALERT, false)
+
+        switchShowSpeed = findViewById(R.id.switchShowSpeed)
+        switchShowSpeed.isChecked = getSharedPreferences(PREFS_HUD, MODE_PRIVATE).getBoolean(PREF_SHOW_SPEED, true)
+
+        switchShowSpeedLimit = findViewById(R.id.switchShowSpeedLimit)
+        switchShowSpeedLimit.isChecked = getSharedPreferences(PREFS_HUD, MODE_PRIVATE).getBoolean(PREF_SHOW_SPEED_LIMIT, true)
+
+        spinnerCacheSize = findViewById(R.id.spinnerCacheSize)
+        btnClearCache = findViewById(R.id.btnClearCache)
+        cacheSizeText = findViewById(R.id.cacheSizeText)
+        setupCacheSpinner()
     }
 
     private fun setupWifiManager() {
@@ -320,11 +345,37 @@ class MainActivity : AppCompatActivity() {
             sendCurrentSettings()
         }
 
+        switchTurnAlert.setOnCheckedChangeListener { _, isChecked ->
+            getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putBoolean(PREF_TURN_ALERT, isChecked).apply()
+            sendCurrentSettings()
+        }
+
+        switchShowSpeed.setOnCheckedChangeListener { _, isChecked ->
+            getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putBoolean(PREF_SHOW_SPEED, isChecked).apply()
+            sendCurrentSettings()
+        }
+
+        switchShowSpeedLimit.setOnCheckedChangeListener { _, isChecked ->
+            getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putBoolean(PREF_SHOW_SPEED_LIMIT, isChecked).apply()
+            sendCurrentSettings()
+        }
+
         switchWifiShare.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) checkWifiPermissionsAndStart() else wifiShareManager.stopSharing()
         }
 
         btnSendHotspotToGlasses.setOnClickListener { sendHotspotToGlasses() }
+
+        findViewById<Button>(R.id.btnBuyMeACoffee).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Support Rokid Maps")
+                .setMessage("If you enjoy using Rokid Maps, consider buying me a coffee! Your support helps keep development going.")
+                .setPositiveButton("Open Link") { _, _ ->
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://buymeacoffee.com/charleshartmann")))
+                }
+                .setNegativeButton("Maybe Later", null)
+                .show()
+        }
     }
 
     private var apkProgressDialog: AlertDialog? = null
@@ -400,6 +451,7 @@ class MainActivity : AppCompatActivity() {
         updateNotifStatus()
         if (bound) service?.uiCallback = navCallback
         if (streaming) btAudioRouter.connectAudio()
+        if (bound) updateCacheSizeText()
     }
 
     override fun onPause() {
@@ -799,8 +851,42 @@ class MainActivity : AppCompatActivity() {
             useMiniMap = prefs.getBoolean(PREF_MINI_MAP, false),
             miniMapStyle = prefs.getString(PREF_MINI_MAP_STYLE, "strip") ?: "strip",
             streamNotifications = hudPrefs.getBoolean(PREF_STREAM_NOTIFICATIONS, true),
-            showUpcomingSteps = hudPrefs.getBoolean(PREF_SHOW_FULL_ROUTE_STEPS, false)
+            showUpcomingSteps = hudPrefs.getBoolean(PREF_SHOW_FULL_ROUTE_STEPS, false),
+            showTurnAlert = hudPrefs.getBoolean(PREF_TURN_ALERT, false),
+            tileCacheSizeMb = hudPrefs.getInt(PREF_TILE_CACHE_SIZE_MB, 100),
+            showSpeed = hudPrefs.getBoolean(PREF_SHOW_SPEED, true),
+            showSpeedLimit = hudPrefs.getBoolean(PREF_SHOW_SPEED_LIMIT, true)
         )
+    }
+
+    private fun setupCacheSpinner() {
+        val sizes = listOf(50, 100, 200, 500)
+        val labels = sizes.map { "$it MB" }
+        spinnerCacheSize.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+        val savedSize = getSharedPreferences(PREFS_HUD, MODE_PRIVATE).getInt(PREF_TILE_CACHE_SIZE_MB, 100)
+        val idx = sizes.indexOf(savedSize).coerceAtLeast(0)
+        spinnerCacheSize.setSelection(idx)
+        spinnerCacheSize.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val mb = sizes[pos]
+                getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putInt(PREF_TILE_CACHE_SIZE_MB, mb).apply()
+                service?.updateTileCacheSize(mb)
+                sendCurrentSettings()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        btnClearCache.setOnClickListener {
+            service?.clearTileCache()
+            Toast.makeText(this, "Map cache cleared", Toast.LENGTH_SHORT).show()
+            updateCacheSizeText()
+        }
+        updateCacheSizeText()
+    }
+
+    private fun updateCacheSizeText() {
+        val bytes = service?.tileCacheSizeBytes() ?: 0L
+        val mb = bytes / (1024.0 * 1024.0)
+        cacheSizeText.text = String.format("Used: %.1f MB", mb)
     }
 
     private fun isImperial(): Boolean = getPreferences(MODE_PRIVATE).getBoolean(PREF_IMPERIAL, false)

@@ -69,7 +69,7 @@ class HudActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         hudView = findViewById(R.id.hudView)
 
-        tileManager = TileManager { hudView.postInvalidate() }
+        tileManager = TileManager(applicationContext) { hudView.postInvalidate() }
         hudView.tileManager = tileManager
 
         hudView.onLayoutToggle = { toggleLayout() }
@@ -96,6 +96,10 @@ class HudActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     tileManager.onTileRequestViaProxy = if (newState.btConnected) {
                         { z, x, y, id -> btClient.sendTileRequest(z, x, y, id) }
                     } else null
+                    // Update disk cache size from settings
+                    if (newState.tileCacheSizeMb != hudView.state.tileCacheSizeMb) {
+                        tileManager.updateCacheSize(newState.tileCacheSizeMb)
+                    }
                     if (newState.ttsEnabled && ttsReady
                         && newState.instruction.isNotBlank()
                         && newState.instruction != lastSpokenInstruction

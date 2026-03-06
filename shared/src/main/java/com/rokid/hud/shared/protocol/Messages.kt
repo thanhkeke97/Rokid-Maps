@@ -5,7 +5,9 @@ data class StateMessage(
     val longitude: Double,
     val bearing: Float,
     val speed: Float,
-    val accuracy: Float
+    val accuracy: Float,
+    val speedLimitKmh: Int = -1,
+    val distToNextStep: Double = -1.0
 )
 
 data class Waypoint(
@@ -38,7 +40,11 @@ data class SettingsMessage(
     val useMiniMap: Boolean = false,
     val miniMapStyle: String = "strip",
     val streamNotifications: Boolean = true,
-    val showUpcomingSteps: Boolean = false
+    val showUpcomingSteps: Boolean = false,
+    val showTurnAlert: Boolean = false,
+    val tileCacheSizeMb: Int = 100,
+    val showSpeed: Boolean = true,
+    val showSpeedLimit: Boolean = true
 )
 
 data class WifiCredsMessage(

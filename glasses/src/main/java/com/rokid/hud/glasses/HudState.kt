@@ -42,6 +42,12 @@ data class HudState(
     val batteryLevel: Int = -1,
     val btConnected: Boolean = false,
     val wifiConnected: Boolean = false,
+    val speedLimitKmh: Int = -1,
+    val distToNextStep: Double = -1.0,
+    val showTurnAlert: Boolean = false,
+    val tileCacheSizeMb: Int = 100,
+    val showSpeed: Boolean = true,
+    val showSpeedLimit: Boolean = true,
     /** When set, shown prominently (e.g. "Rokid Maps is closing") before app exits. */
     val closingMessage: String? = null
 ) {

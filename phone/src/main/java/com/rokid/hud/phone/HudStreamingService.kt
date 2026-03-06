@@ -32,6 +32,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
 import java.util.UUID
+import com.rokid.hud.shared.cache.DiskTileCache
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 
@@ -72,6 +73,8 @@ class HudStreamingService : Service() {
 
     private var cachedSettings: SettingsMessage? = null
     private var cachedWifiCreds: WifiCredsMessage? = null
+    private val speedLimitClient = OverpassSpeedLimitClient()
+    private var diskTileCache: DiskTileCache? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -84,6 +87,7 @@ class HudStreamingService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
         if (!running) {
             running = true
+            diskTileCache = DiskTileCache(applicationContext)
             acquireWakeLock()
             initNavigation()
             startBluetoothServer()
@@ -131,6 +135,7 @@ class HudStreamingService : Service() {
         for (w in clients) { try { w.close() } catch (_: Exception) {} }
         clients.clear()
         tileExecutor.shutdownNow()
+        diskTileCache?.shutdown()
         super.onDestroy()
     }
 
@@ -167,6 +172,7 @@ class HudStreamingService : Service() {
         navigationManager?.stopNavigation()
         sendStep("", "", 0.0)
         sendRoute(emptyList(), 0.0, 0.0)
+        broadcast(ProtocolCodec.encodeStepsList(StepsListMessage(emptyList(), 0)))
     }
 
     fun getLastLocation(): Pair<Double, Double> = Pair(lastLat, lastLng)
@@ -174,9 +180,11 @@ class HudStreamingService : Service() {
     fun sendSettings(
         ttsEnabled: Boolean, useImperial: Boolean = false,
         useMiniMap: Boolean = false, miniMapStyle: String = "strip",
-        streamNotifications: Boolean = true, showUpcomingSteps: Boolean = false
+        streamNotifications: Boolean = true, showUpcomingSteps: Boolean = false,
+        showTurnAlert: Boolean = false, tileCacheSizeMb: Int = 100,
+        showSpeed: Boolean = true, showSpeedLimit: Boolean = true
     ) {
-        val msg = SettingsMessage(ttsEnabled, useImperial, useMiniMap, miniMapStyle, streamNotifications, showUpcomingSteps)
+        val msg = SettingsMessage(ttsEnabled, useImperial, useMiniMap, miniMapStyle, streamNotifications, showUpcomingSteps, showTurnAlert, tileCacheSizeMb, showSpeed, showSpeedLimit)
         cachedSettings = msg
         broadcast(ProtocolCodec.encodeSettings(msg))
     }
@@ -241,6 +249,10 @@ class HudStreamingService : Service() {
             }
         }.start()
     }
+
+    fun clearTileCache() { diskTileCache?.clear() }
+    fun tileCacheSizeBytes(): Long = diskTileCache?.sizeBytes() ?: 0L
+    fun updateTileCacheSize(mb: Int) { diskTileCache?.updateMaxSize(mb) }
 
     fun sendNotification(title: String?, text: String?, packageName: String?) {
         broadcast(ProtocolCodec.encodeNotification(
@@ -308,26 +320,35 @@ class HudStreamingService : Service() {
             try {
                 if (!running) return@execute
                 var data: String? = null
-                for (template in TILE_URLS) {
-                    try {
-                        val url = URL(String.format(template, z, x, y))
-                        val conn = url.openConnection() as HttpURLConnection
-                        conn.setRequestProperty("User-Agent", USER_AGENT)
-                        conn.connectTimeout = 8000
-                        conn.readTimeout = 8000
-                        if (conn.responseCode == 200) {
-                            val bytes = readBounded(conn.inputStream, MAX_TILE_BYTES)
-                            conn.disconnect()
-                            if (bytes.isNotEmpty()) {
-                                data = Base64.getEncoder().encodeToString(bytes)
+
+                // Check disk cache first
+                val cached = diskTileCache?.get(z, x, y)
+                if (cached != null) {
+                    data = Base64.getEncoder().encodeToString(cached)
+                } else {
+                    for (template in TILE_URLS) {
+                        try {
+                            val url = URL(String.format(template, z, x, y))
+                            val conn = url.openConnection() as HttpURLConnection
+                            conn.setRequestProperty("User-Agent", USER_AGENT)
+                            conn.connectTimeout = 8000
+                            conn.readTimeout = 8000
+                            if (conn.responseCode == 200) {
+                                val bytes = readBounded(conn.inputStream, MAX_TILE_BYTES)
+                                conn.disconnect()
+                                if (bytes.isNotEmpty()) {
+                                    data = Base64.getEncoder().encodeToString(bytes)
+                                    diskTileCache?.put(z, x, y, bytes)
+                                }
+                                break
                             }
-                            break
+                            conn.disconnect()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Tile fetch $id failed: ${e.message}")
                         }
-                        conn.disconnect()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Tile fetch $id failed: ${e.message}")
                     }
                 }
+
                 if (!running) return@execute
                 if (!clients.contains(writer)) return@execute
                 val resp = ProtocolCodec.encodeTileResp(TileResponseMessage(id = id, data = data))
@@ -451,8 +472,11 @@ class HudStreamingService : Service() {
     private fun onLocationUpdate(loc: Location) {
         lastLat = loc.latitude
         lastLng = loc.longitude
+        val distToNext = navigationManager?.getDistanceToNextStep(loc.latitude, loc.longitude) ?: -1.0
+        val speedLimit = speedLimitClient.getCachedSpeedLimit(loc.latitude, loc.longitude)
         broadcast(ProtocolCodec.encodeState(
-            StateMessage(loc.latitude, loc.longitude, loc.bearing, loc.speed, loc.accuracy)
+            StateMessage(loc.latitude, loc.longitude, loc.bearing, loc.speed, loc.accuracy,
+                speedLimitKmh = speedLimit, distToNextStep = distToNext)
         ))
         navigationManager?.onLocationUpdate(loc.latitude, loc.longitude)
     }

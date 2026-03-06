@@ -36,6 +36,12 @@ object ProtocolConstants {
     const val FIELD_APK_SIZE = "apkSize"
     const val FIELD_APK_CHUNKS = "apkChunks"
     const val FIELD_APK_INDEX = "apkIdx"
+    const val FIELD_SPEED_LIMIT = "spdLim"
+    const val FIELD_DIST_NEXT_STEP = "distNext"
+    const val FIELD_SHOW_TURN_ALERT = "turnAlert"
+    const val FIELD_TILE_CACHE_SIZE_MB = "tileCacheMb"
+    const val FIELD_SHOW_SPEED = "showSpd"
+    const val FIELD_SHOW_SPEED_LIMIT = "showSpdLim"
 
     object MessageType {
         const val STATE = "state"

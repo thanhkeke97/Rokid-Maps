@@ -18,28 +18,32 @@ class HudView @JvmOverloads constructor(
         private const val MAP_ZOOM = 16
     }
 
-    private val hudGreen = Color.parseColor("#00FF00")
+    // Monochrome green palette — these glasses only display green
+    private val hudBrightGreen = Color.parseColor("#00FF00")
+    private val hudGreen = Color.parseColor("#00CC00")
     private val hudDimGreen = Color.parseColor("#008800")
     private val hudDarkGreen = Color.parseColor("#004400")
+    private val hudFaintGreen = Color.parseColor("#003300")
 
+    // Green-only color matrix: converts all color channels to green luminance
     private val tilePaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
         colorFilter = ColorMatrixColorFilter(ColorMatrix(floatArrayOf(
-            0.6f, 0.1f, 0.05f, 0f, 0f,
-            0.15f, 1.0f, 0.15f, 0f, 10f,
-            0.05f, 0.1f, 0.6f, 0f, 0f,
-            0f, 0f, 0f, 1f, 0f
+            0f, 0f, 0f, 0f, 0f,       // R output = 0
+            0.30f, 0.59f, 0.11f, 0f, 0f, // G output = luminance
+            0f, 0f, 0f, 0f, 0f,       // B output = 0
+            0f, 0f, 0f, 1f, 0f        // A output = alpha
         )))
     }
     private val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#00FF88"); style = Paint.Style.STROKE; strokeWidth = 7f
+        color = hudBrightGreen; style = Paint.Style.STROKE; strokeWidth = 7f
         strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
     }
     private val routeGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#6600FF88"); style = Paint.Style.STROKE; strokeWidth = 18f
+        color = Color.argb(0x66, 0, 0xFF, 0); style = Paint.Style.STROKE; strokeWidth = 18f
         strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
     }
     private val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; style = Paint.Style.FILL
+        color = hudBrightGreen; style = Paint.Style.FILL
     }
     private val arrowOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = hudGreen; style = Paint.Style.STROKE; strokeWidth = 2f
@@ -71,6 +75,26 @@ class HudView @JvmOverloads constructor(
     private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = hudGreen; style = Paint.Style.FILL
     }
+
+    // Turn alert overlay paints (pre-allocated, all green)
+    private val turnAlertBgPaint = Paint().apply {
+        color = Color.argb(200, 0, 0, 0); style = Paint.Style.FILL
+    }
+    private val turnAlertArrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = hudBrightGreen; typeface = Typeface.MONOSPACE; textSize = 64f
+        textAlign = Paint.Align.CENTER
+    }
+    private val turnAlertInstrPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = hudGreen; typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); textSize = 22f
+        textAlign = Paint.Align.CENTER
+    }
+    private val turnAlertDistPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = hudBrightGreen; typeface = Typeface.MONOSPACE; textSize = 28f
+        textAlign = Paint.Align.CENTER
+    }
+
+    // Reusable Rect for tile drawing (avoids allocation in draw loop)
+    private val tileDestRect = Rect()
 
     var state: HudState = HudState()
         set(value) { field = value; postInvalidate() }
@@ -109,6 +133,7 @@ class HudView @JvmOverloads constructor(
         }
         drawStatusBar(canvas, w)
         drawModeIndicator(canvas, w)
+        drawTurnAlertOverlay(canvas, w, h)
         state.closingMessage?.let { drawClosingMessage(canvas, w, h, it) }
     }
 
@@ -127,6 +152,32 @@ class HudView @JvmOverloads constructor(
         val x = w / 2f
         val y = h / 2f - (msgPaint.descent() + msgPaint.ascent()) / 2f
         canvas.drawText(message, x, y, msgPaint)
+    }
+
+    private fun drawTurnAlertOverlay(canvas: Canvas, w: Float, h: Float) {
+        if (!state.showTurnAlert) return
+        if (state.instruction.isBlank()) return
+        if (state.maneuver.contains("arrive", true)) return
+        val dist = state.distToNextStep
+        if (dist < 1.0 || dist > 200.0) return
+
+        // Draw semi-transparent overlay
+        canvas.drawRect(0f, h * 0.15f, w, h * 0.85f, turnAlertBgPaint)
+
+        val cx = w / 2f
+        val cy = h / 2f
+
+        // Large maneuver arrow
+        val sym = maneuverToArrow(state.maneuver)
+        canvas.drawText(sym, cx, cy - 20f, turnAlertArrowPaint)
+
+        // Distance
+        val distStr = formatDistance(dist)
+        canvas.drawText(distStr, cx, cy + 25f, turnAlertDistPaint)
+
+        // Instruction text (truncated)
+        val instrTrunc = truncateText(state.instruction, turnAlertInstrPaint, w * 0.85f)
+        canvas.drawText(instrTrunc, cx, cy + 58f, turnAlertInstrPaint)
     }
 
     // ── Full-screen: map top 72%, text bottom 28% ─────────────────────────
@@ -186,13 +237,13 @@ class HudView @JvmOverloads constructor(
                     color = hudGreen; typeface = Typeface.MONOSPACE; textSize = 22f
                 }
                 val arrivedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.WHITE; typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); textSize = 16f
+                    color = hudBrightGreen; typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); textSize = 16f
                 }
                 canvas.drawText("\u2713", textLeft, centerY - 4f, checkPaint)
                 canvas.drawText("Arrived!", textLeft + 28f, centerY - 4f, arrivedPaint)
             } else {
                 val sym = maneuverToArrow(state.maneuver)
-                val dist = formatDistance(state.stepDistance)
+                val dist = formatDistance(effectiveStepDistance())
 
                 // Maneuver arrow + distance
                 val arrowPaintL = Paint(textPaint).apply { textSize = 28f }
@@ -201,7 +252,7 @@ class HudView @JvmOverloads constructor(
                 canvas.drawText(dist, textLeft + 36f, centerY - 6f, distPaintL)
 
                 // Instruction text (wrapped to fit)
-                val instrPaint = Paint(smallTextPaint).apply { textSize = 14f; color = Color.parseColor("#AAFFAA") }
+                val instrPaint = Paint(smallTextPaint).apply { textSize = 14f; color = hudGreen }
                 val instrTrunc = truncateText(state.instruction, instrPaint, textW)
                 canvas.drawText(instrTrunc, textLeft, centerY + 16f, instrPaint)
             }
@@ -291,7 +342,11 @@ class HudView @JvmOverloads constructor(
 
                 val bmp = tileManager?.getTile(MAP_ZOOM, wrappedTx, ty)
                 if (bmp != null && !bmp.isRecycled) {
-                    canvas.drawBitmap(bmp, screenX, screenY, tilePaint)
+                    tileDestRect.set(
+                        screenX.toInt(), screenY.toInt(),
+                        (screenX + TILE_SIZE).toInt(), (screenY + TILE_SIZE).toInt()
+                    )
+                    canvas.drawBitmap(bmp, null, tileDestRect, tilePaint)
                 }
             }
         }
@@ -343,6 +398,10 @@ class HudView @JvmOverloads constructor(
 
     // ── Directions ────────────────────────────────────────────────────────
 
+    private fun effectiveStepDistance(): Double {
+        return if (state.distToNextStep >= 0) state.distToNextStep else state.stepDistance
+    }
+
     private fun drawDirections(canvas: Canvas, left: Float, top: Float, maxWidth: Float) {
         if (state.instruction.isBlank()) {
             val p = Paint(textPaint).apply { textSize = 18f }
@@ -354,7 +413,7 @@ class HudView @JvmOverloads constructor(
 
         if (isArrived) {
             val arrivedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE; typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); textSize = 24f
+                color = hudBrightGreen; typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); textSize = 24f
                 textAlign = Paint.Align.CENTER
             }
             val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -368,7 +427,7 @@ class HudView @JvmOverloads constructor(
         }
 
         val sym = maneuverToArrow(state.maneuver)
-        val dist = formatDistance(state.stepDistance)
+        val dist = formatDistance(effectiveStepDistance())
         val instrPaint = Paint(textPaint).apply { textSize = 20f }
         val distPaint = Paint(textPaint).apply { textSize = 18f; textAlign = Paint.Align.RIGHT }
         val instrTrunc = truncateText("$sym ${state.instruction}", instrPaint, maxWidth - 80f)
@@ -443,7 +502,7 @@ class HudView @JvmOverloads constructor(
         val y = 14f
         var x = 8f
 
-        p.color = if (state.btConnected) hudGreen else Color.parseColor("#FF4444")
+        p.color = if (state.btConnected) hudGreen else hudDimGreen
         val btLabel = if (state.btConnected) "BT:ON" else "BT:--"
         canvas.drawText(btLabel, x, y, p)
         x += p.measureText(btLabel) + 10f
@@ -457,6 +516,43 @@ class HudView @JvmOverloads constructor(
             p.color = hudGreen
             val batLabel = "BAT:${state.batteryLevel}%"
             canvas.drawText(batLabel, x, y, p)
+            x += p.measureText(batLabel) + 10f
+        }
+
+        // Speed display (always show when enabled)
+        if (state.showSpeed) {
+            val speedVal: Int
+            val speedUnit: String
+            if (state.useImperial) {
+                speedVal = (state.speed * 2.23694f).toInt() // m/s to mph
+                speedUnit = "mph"
+            } else {
+                speedVal = (state.speed * 3.6f).toInt() // m/s to km/h
+                speedUnit = "km/h"
+            }
+
+            // Check if over speed limit (only highlight red when limit display is also on)
+            val overLimit = if (state.showSpeedLimit && state.speedLimitKmh > 0) {
+                val currentKmh = (state.speed * 3.6f).toInt()
+                currentKmh > state.speedLimitKmh
+            } else false
+
+            p.color = hudGreen
+            val speedPrefix = if (overLimit) "! " else ""
+            val speedLabel = "$speedPrefix$speedVal $speedUnit"
+            canvas.drawText(speedLabel, x, y, p)
+            x += p.measureText(speedLabel) + 10f
+
+            // Speed limit if available and enabled
+            if (state.showSpeedLimit && state.speedLimitKmh > 0) {
+                val limitVal = if (state.useImperial) {
+                    (state.speedLimitKmh / 1.60934).toInt()
+                } else state.speedLimitKmh
+                val limitUnit = if (state.useImperial) "mph" else "km/h"
+                p.color = hudDimGreen
+                val limitLabel = "lim:$limitVal$limitUnit"
+                canvas.drawText(limitLabel, x, y, p)
+            }
         }
     }
 

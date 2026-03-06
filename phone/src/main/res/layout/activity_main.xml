@@ -781,6 +781,193 @@
                     android:thumbTint="#00E676"
                     android:trackTint="#424242" />
             </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#2A2A2A" />
+
+            <!-- Turn alert overlay on glasses -->
+            <LinearLayout style="@style/ToggleRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Turn Alert on Glasses"
+                        android:textColor="#E0E0E0"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show large turn overlay when approaching a turn"
+                        android:textColor="#757575"
+                        android:textSize="12sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switchTurnAlert"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:thumbTint="#FF9800"
+                    android:trackTint="#424242" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#2A2A2A" />
+
+            <!-- Show speed on glasses -->
+            <LinearLayout style="@style/ToggleRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show Speed on Glasses"
+                        android:textColor="#E0E0E0"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Display current speed (mph or km/h based on units)"
+                        android:textColor="#757575"
+                        android:textSize="12sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switchShowSpeed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:thumbTint="#00E676"
+                    android:trackTint="#424242" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#2A2A2A" />
+
+            <!-- Show speed limit on glasses -->
+            <LinearLayout style="@style/ToggleRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show Speed Limit on Glasses"
+                        android:textColor="#E0E0E0"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Display road speed limit (auto-detected, turns speed red if over)"
+                        android:textColor="#757575"
+                        android:textSize="12sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switchShowSpeedLimit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:thumbTint="#00E676"
+                    android:trackTint="#424242" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#2A2A2A" />
+
+            <!-- Map tile cache settings -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingVertical="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Map Tile Cache"
+                    android:textColor="#E0E0E0"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Cache map tiles to disk for faster loading"
+                    android:textColor="#757575"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Max size: "
+                        android:textColor="#BDBDBD"
+                        android:textSize="13sp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerCacheSize"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:backgroundTint="#424242" />
+
+                    <TextView
+                        android:id="@+id/cacheSizeText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="#757575"
+                        android:textSize="12sp"
+                        android:gravity="end"
+                        android:text="Used: --" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnClearCache"
+                    android:layout_width="match_parent"
+                    android:layout_height="38dp"
+                    android:text="Clear Map Cache"
+                    android:backgroundTint="#2A2A2A"
+                    android:textColor="#FF8A80"
+                    android:textSize="13sp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -796,6 +983,22 @@
             android:gravity="center"
             android:padding="8dp"
             android:text="Tap Start Streaming to begin" />
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUPPORT                                                        -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <Button
+            android:id="@+id/btnBuyMeACoffee"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Buy Me a Coffee"
+            android:backgroundTint="#FFDD00"
+            android:textColor="#000000"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:layout_marginTop="8dp" />
 
     </LinearLayout>
 </ScrollView>

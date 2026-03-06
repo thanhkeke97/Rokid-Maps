@@ -2,6 +2,8 @@
 
 **[🌐 Live Demo & Landing Page](https://chartmann1590.github.io/Rokid-Maps/)**
 
+<a href="https://buymeacoffee.com/charleshartmann"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20Coffee&emoji=&slug=charleshartmann&button_colour=5F7FFF&font_colour=ffffff&font_family=Lato&outline_colour=000000&coffee_colour=FFDD00" height="40" alt="Buy Me a Coffee"></a>
+
 Turn-by-turn navigation on your Rokid AR glasses, powered by your phone.
 
 Your phone handles all the heavy lifting — GPS, route calculations, address search — and streams everything to your glasses over Bluetooth. You get a live map with your route drawn on it, step-by-step directions, and even your phone notifications, all floating in your field of view. No cloud services, no API keys, no subscriptions. It's all free and open-source under the hood.
@@ -21,7 +23,8 @@ The glasses are the display. They render a dark-themed map (CartoDB Dark Matter 
 │  GPS tracking @ 1Hz      │   + tile proxy        │  Live rotating map       │
 │  OSRM routing            │   + APK updates       │  Turn-by-turn HUD        │
 │  Nominatim search        │   + settings sync     │  Route line overlay      │
-│  BT server + A2DP audio  │                       │  Phone notifications     │
+│  Overpass speed limits   │   + tile caching      │  Phone notifications     │
+│  BT server + A2DP audio  │                       │  Speed + speed limit     │
 │  TTS voice directions    │                       │  3 layout modes          │
 └──────────────────────────┘                       └──────────────────────────┘
 ```
@@ -40,6 +43,10 @@ The glasses are the display. They render a dark-themed map (CartoDB Dark Matter 
 - **Share internet with glasses** — Send your phone's hotspot credentials to the glasses so they can download map tiles directly instead of going through the Bluetooth proxy.
 - **Imperial or metric** — Your choice.
 - **Mini map mode** — Toggle from the phone to switch the glasses to a compact layout: small map at the bottom, just the direction and distance, no notifications.
+- **Show speed on glasses** — Toggle to display your current speed in the glasses status bar. Respects your imperial/metric setting.
+- **Show speed limit on glasses** — Toggle to display the road's speed limit next to your speed. When you exceed the limit, a warning indicator appears.
+- **Turn alert on glasses** — Toggle to show a large turn overlay on the glasses when approaching a turn (within 200m). Auto-dismisses after the turn.
+- **Map tile cache** — Configurable disk cache (50/100/200/500 MB) for map tiles on both phone and glasses. Tiles load from cache on subsequent visits. Clear cache button with real-time usage display.
 - **Keeps running in the background** — Uses a WakeLock so your GPS and Bluetooth keep working when the phone screen turns off. It'll ask about battery optimization so Android doesn't kill it.
 
 ### On the Glasses
@@ -48,12 +55,19 @@ The glasses are the display. They render a dark-themed map (CartoDB Dark Matter 
 - **Navigation display** — Shows the current instruction, maneuver arrow, and distance to the next turn. Shows a checkmark and "You have arrived!" when you get there.
 - **Route line** — Your full route drawn on the map with a glowing green line.
 - **Compass** — Shows which way is north and your current bearing in degrees.
-- **Three layouts** — Tap the screen to cycle through them:
+- **Three layouts** — Tap the screen to cycle between Full and Corner. Mini mode is toggled from the phone with two styles (strip or split):
   - **Full** — Map takes up ~72% of the screen, directions and notifications below
   - **Corner** — Small map in the bottom-right corner, text on the left
-  - **Mini** — Compact strip at the bottom (toggled from phone settings)
+  - **Mini** — Compact strip at the bottom (toggled from phone settings, choose between strip or split style)
 - **Phone notifications** — Scrolling list below the directions, shows title and preview text.
-- **Status indicators** — BT and Wi-Fi connection status in the top-left corner.
+- **Speed display** — Current speed shown in the status bar (mph or km/h depending on your units setting). Toggleable from the phone. If a speed limit is known and you exceed it, a `!` warning prefix appears next to your speed.
+- **Speed limits** — Automatically fetched from the [Overpass API](https://overpass-api.de/) (free, no API key). Queried every 15 seconds or 200m, non-blocking. Toggleable from the phone.
+- **Monochrome green display** — The entire HUD renders in shades of green only, matching the monochrome display of Rokid AR glasses. Map tiles are converted to green luminance.
+- **Turn alert overlay** — When enabled, a large semi-transparent overlay appears in the center of the glasses screen when you're within 200m of a turn, showing the maneuver arrow, distance, and instruction.
+- **Live distance countdown** — The distance to the next turn updates in real-time as you move, not just when the step changes.
+- **Earlier turn notifications** — Step advances happen at ~150m from the next turn instead of 45m, giving you more time to prepare.
+- **Disk tile cache** — Map tiles are cached to disk for faster loading on subsequent visits. Cache size is configurable from the phone.
+- **Status indicators** — BT, Wi-Fi, battery, and speed in the top-left corner.
 - **Auto-connect Wi-Fi** — When the phone sends hotspot credentials, the glasses automatically enable Wi-Fi and connect.
 - **Close the app** — Tap the temple (on many devices a single tap is enough). The app shows **"Rokid Maps is closing"** on screen, then exits and stops running. No background process left behind.
 
@@ -79,9 +93,9 @@ More examples: [4](screenshots/glasses/glasses_screenshot_4.png), [5](screenshot
 
 ```
 rokid-maps/
-├── shared/    Bluetooth protocol — message types, JSON encoding/decoding
-├── phone/     Phone app — search, routing, streaming service, BT server
-└── glasses/   Glasses app — HUD rendering, BT client, tile manager
+├── shared/    Bluetooth protocol — message types, JSON encoding/decoding, disk tile cache
+├── phone/     Phone app — search, routing, streaming service, BT server, speed limit client
+└── glasses/   Glasses app — HUD rendering, BT client, tile manager, turn alert overlay
 ```
 
 ## Building
@@ -139,10 +153,11 @@ Everything goes over Bluetooth SPP as one JSON object per line. Here's what gets
 
 | Message | What It Does |
 |---------|-------------|
-| `state` | GPS position, bearing, speed, accuracy — sent once per second |
+| `state` | GPS position, bearing, speed, accuracy, speed limit, distance to next step — sent once per second |
 | `route` | Full list of waypoints, total distance and duration |
 | `step` | Current instruction, maneuver type, distance to next turn |
-| `settings` | TTS on/off, imperial/metric, mini map toggle |
+| `settings` | TTS on/off, imperial/metric, mini map toggle, turn alert, show speed, show speed limit, tile cache size |
+| `steps_list` | Full list of upcoming navigation steps with current step index |
 | `wifi_creds` | Hotspot SSID and password for the glasses to connect |
 | `tile_req` / `tile_resp` | Glasses ask for a map tile, phone fetches and returns it |
 | `apk_start` / `apk_chunk` / `apk_end` | Glasses app update sent in chunks from the phone |
@@ -154,9 +169,16 @@ All free, all open-source:
 
 - **[OSRM](http://project-osrm.org/)** — Routing engine (no API key)
 - **[Nominatim](https://nominatim.openstreetmap.org/)** — Address search (no API key)
+- **[Overpass API](https://overpass-api.de/)** — Speed limit data from OpenStreetMap (no API key)
 - **[OpenStreetMap](https://www.openstreetmap.org/)** — Map data (ODbL license)
 - **[CartoDB](https://carto.com/basemaps/)** — Dark Matter tiles (CC BY-SA)
 - **[osmdroid](https://github.com/osmdroid/osmdroid)** — Android map library
+
+## Support
+
+If you find this project useful, consider supporting development:
+
+<a href="https://buymeacoffee.com/charleshartmann"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20Coffee&emoji=&slug=charleshartmann&button_colour=5F7FFF&font_colour=ffffff&font_family=Lato&outline_colour=000000&coffee_colour=FFDD00" height="50" alt="Buy Me a Coffee"></a>
 
 ## License
 

@@ -109,6 +109,24 @@ class HudView @JvmOverloads constructor(
         }
         drawStatusBar(canvas, w)
         drawModeIndicator(canvas, w)
+        state.closingMessage?.let { drawClosingMessage(canvas, w, h, it) }
+    }
+
+    private fun drawClosingMessage(canvas: Canvas, w: Float, h: Float, message: String) {
+        val overlayPaint = Paint().apply {
+            color = Color.argb(180, 0, 0, 0)
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, w, h, overlayPaint)
+        val msgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = hudGreen
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            textSize = 28f
+            textAlign = Paint.Align.CENTER
+        }
+        val x = w / 2f
+        val y = h / 2f - (msgPaint.descent() + msgPaint.ascent()) / 2f
+        canvas.drawText(message, x, y, msgPaint)
     }
 
     // ── Full-screen: map top 72%, text bottom 28% ─────────────────────────

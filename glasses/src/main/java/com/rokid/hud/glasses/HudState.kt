@@ -41,7 +41,9 @@ data class HudState(
     val currentStepIndex: Int = 0,
     val batteryLevel: Int = -1,
     val btConnected: Boolean = false,
-    val wifiConnected: Boolean = false
+    val wifiConnected: Boolean = false,
+    /** When set, shown prominently (e.g. "Rokid Maps is closing") before app exits. */
+    val closingMessage: String? = null
 ) {
     companion object {
         const val MAX_NOTIFICATIONS = 8

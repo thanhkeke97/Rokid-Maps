@@ -55,6 +55,25 @@ The glasses are the display. They render a dark-themed map (CartoDB Dark Matter 
 - **Phone notifications** — Scrolling list below the directions, shows title and preview text.
 - **Status indicators** — BT and Wi-Fi connection status in the top-left corner.
 - **Auto-connect Wi-Fi** — When the phone sends hotspot credentials, the glasses automatically enable Wi-Fi and connect.
+- **Close the app** — Tap the temple (on many devices a single tap is enough). The app shows **"Rokid Maps is closing"** on screen, then exits and stops running. No background process left behind.
+
+## Screenshots
+
+### Phone app
+
+The phone app handles search, routing, and streaming to the glasses. When navigating, it shows a map and turn-by-turn directions; you can toggle the full list of route steps and control what gets sent to the glasses (mini map, notifications).
+
+![Phone app](screenshots/phone/38db458c-1b39-47ce-bd6a-e9921f8a7267.png)
+
+### Glasses HUD
+
+On the glasses you get a live map, route line, compass, and directions. Tap the screen to cycle layout; tap the temple to close the app (you’ll see "Rokid Maps is closing" first).
+
+| Full-screen map | Corner layout | Mini bottom (phone toggle) |
+|-----------------|---------------|----------------------------|
+| ![Glasses 1](screenshots/glasses/glasses_screenshot_1.png) | ![Glasses 2](screenshots/glasses/glasses_screenshot_2.png) | ![Glasses 3](screenshots/glasses/glasses_screenshot_3.png) |
+
+More examples: [4](screenshots/glasses/glasses_screenshot_4.png), [5](screenshots/glasses/glasses_screenshot_5.png), [6](screenshots/glasses/glasses_screenshot_6.png).
 
 ## Project Structure
 

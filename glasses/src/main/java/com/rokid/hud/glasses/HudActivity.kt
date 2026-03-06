@@ -9,11 +9,14 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.content.FileProvider
 import java.io.File
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -28,6 +31,10 @@ class HudActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     companion object {
         private const val RC_BT = 200
         private const val TAG = "HudActivity"
+        private const val ROKID_DOUBLE_BACK_ACTION = "com.rokid.glass.homekey.doubleback"
+        private const val EXIT_ON_STOP_DELAY_MS = 400L
+        private const val CLOSING_MESSAGE_DURATION_MS = 1800L
+        private const val CLOSING_MESSAGE = "Rokid Maps is closing"
     }
 
     private lateinit var hudView: HudView
@@ -38,6 +45,13 @@ class HudActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var lastSpokenInstruction = ""
+
+    /** Set true when we start another activity (e.g. installer) so onStop doesn't exit the app. */
+    private var launchingExternalActivity = false
+    /** Set true when we're showing "Rokid Maps is closing" so we don't double-invoke shutdown. */
+    private var isShuttingDown = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var exitWhenStoppedRunnable: Runnable? = null
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -104,11 +118,54 @@ class HudActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btClient.onTileReceived = { id, data -> tileManager.deliverTile(id, data) }
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(doubleBackReceiver, IntentFilter(ROKID_DOUBLE_BACK_ACTION), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(doubleBackReceiver, IntentFilter(ROKID_DOUBLE_BACK_ACTION))
+        }
         requestPermissionsAndStartBt()
     }
 
+    private val doubleBackReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ROKID_DOUBLE_BACK_ACTION) {
+                Log.i(TAG, "Double-tap back broadcast received — shutting down")
+                shutdownApp()
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        exitWhenStoppedRunnable?.let { mainHandler.removeCallbacks(it) }
+        exitWhenStoppedRunnable = null
+        launchingExternalActivity = false
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (launchingExternalActivity || isFinishing) return
+        val runnable = Runnable {
+            Log.i(TAG, "App moved to background — shutting down")
+            shutdownApp(showMessage = false)
+        }
+        exitWhenStoppedRunnable = runnable
+        mainHandler.postDelayed(runnable, EXIT_ON_STOP_DELAY_MS)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
+        if (event != null && event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER) {
+            Log.i(TAG, "Touchpad double-tap (KEYCODE_ENTER) — shutting down")
+            shutdownApp()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onDestroy() {
-        try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
+        exitWhenStoppedRunnable?.let { mainHandler.removeCallbacks(it) }
+        try { unregisterReceiver(doubleBackReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(batteryReceiver) } catch (_: Exception) { }
         btClient.stop()
         wifiConnector.disconnect()
         tileManager.shutdown()
@@ -159,14 +216,30 @@ class HudActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         hudView.state = hudView.state.toggleLayout()
     }
 
-    private fun shutdownApp() {
-        Log.i(TAG, "Double-tap detected — shutting down app")
+    private fun shutdownApp(showMessage: Boolean = true) {
+        if (isShuttingDown) return
+        isShuttingDown = true
+        exitWhenStoppedRunnable?.let { mainHandler.removeCallbacks(it) }
+        exitWhenStoppedRunnable = null
+        if (showMessage && !isFinishing) {
+            hudView.state = hudView.state.copy(closingMessage = CLOSING_MESSAGE)
+            mainHandler.postDelayed({
+                doShutdown()
+            }, CLOSING_MESSAGE_DURATION_MS)
+        } else {
+            doShutdown()
+        }
+    }
+
+    private fun doShutdown() {
+        Log.i(TAG, "Shutting down app")
         finishAndRemoveTask()
         android.os.Process.killProcess(android.os.Process.myPid())
     }
 
     private fun installReceivedApk(file: File) {
         try {
+            launchingExternalActivity = true
             val uri: Uri = FileProvider.getUriForFile(
                 this,
                 "${packageName}.fileprovider",

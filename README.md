@@ -71,7 +71,7 @@ On the glasses you get a live map, route line, compass, and directions. Tap the 
 
 | Full-screen map | Corner layout | Mini bottom (phone toggle) |
 |-----------------|---------------|----------------------------|
-| ![Glasses 1](screenshots/glasses/glasses_screenshot_1.png) | ![Glasses 2](screenshots/glasses/glasses_screenshot_2.png) | ![Glasses 3](screenshots/glasses/glasses_screenshot_3.png) |
+| ![Full-screen](screenshots/glasses/fullscreen_map_3.png) | ![Corner](screenshots/glasses/corner_map_1.png) | ![Mini bottom](screenshots/glasses/mini_bottom_map_2.png) |
 
 More examples: [4](screenshots/glasses/glasses_screenshot_4.png), [5](screenshots/glasses/glasses_screenshot_5.png), [6](screenshots/glasses/glasses_screenshot_6.png).
 

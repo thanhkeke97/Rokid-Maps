@@ -358,6 +358,64 @@
             font-size: 0.9rem;
         }
 
+        /* Screenshots Section */
+        .screenshots {
+            background: var(--bg-darker);
+        }
+
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .screenshot-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .screenshot-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .screenshot-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .screenshot-card .caption {
+            padding: 1.5rem;
+        }
+
+        .screenshot-card h4 {
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .screenshot-card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .screenshot-badge {
+            display: inline-block;
+            background: var(--gradient);
+            color: #000;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
         /* CTA Section */
         .cta-section {
             background: var(--gradient);
@@ -452,6 +510,7 @@
         <ul class="nav-links">
             <li><a href="#features">Features</a></li>
             <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#screenshots">Screenshots</a></li>
             <li><a href="#download">Download</a></li>
         </ul>
         <a href="https://github.com/chartmann1590/Rokid-Maps" class="cta-btn">
@@ -663,6 +722,88 @@
                 </div>
                 <h3>Open Source</h3>
                 <p>Use it, modify it, build on it. The entire codebase is free and open for everyone.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="screenshots" class="section screenshots">
+        <h2 class="section-title">See It In <span>Action</span></h2>
+        <p style="text-align: center; color: var(--text-muted); max-width: 700px; margin: 0 auto;">
+            Real screenshots from the Rokid Maps apps running on actual hardware
+        </p>
+
+        <h3 style="text-align: center; color: var(--primary); margin-top: 4rem; margin-bottom: 2rem;">
+            <i class="fas fa-glasses"></i> Glasses Display
+        </h3>
+
+        <div class="screenshot-grid">
+            <div class="screenshot-card">
+                <img src="screenshots/glasses/fullscreen_map_3.png" alt="Fullscreen map view">
+                <div class="caption">
+                    <span class="screenshot-badge">Full Layout</span>
+                    <h4>Live Map Navigation</h4>
+                    <p>Dark-themed map with route line overlay, compass, and step-by-step directions</p>
+                </div>
+            </div>
+
+            <div class="screenshot-card">
+                <img src="screenshots/glasses/corner_map_1.png" alt="Corner map layout">
+                <div class="caption">
+                    <span class="screenshot-badge">Corner Layout</span>
+                    <h4>Compact Map View</h4>
+                    <p>Small map in bottom-right corner with full text visibility</p>
+                </div>
+            </div>
+
+            <div class="screenshot-card">
+                <img src="screenshots/glasses/mini_bottom_map_2.png" alt="Mini bottom map">
+                <div class="caption">
+                    <span class="screenshot-badge">Mini Layout</span>
+                    <h4>Minimal Display</h4>
+                    <p>Strip at bottom with just direction and distance, no notifications</p>
+                </div>
+            </div>
+
+            <div class="screenshot-card">
+                <img src="screenshots/glasses/glasses_screenshot_4.png" alt="Glasses navigation screen">
+                <div class="caption">
+                    <span class="screenshot-badge">Navigation</span>
+                    <h4>Turn Instructions</h4>
+                    <p>Clear maneuver arrow and distance to next turn displayed prominently</p>
+                </div>
+            </div>
+
+            <div class="screenshot-card">
+                <img src="screenshots/glasses/glasses_screenshot_5.png" alt="Glasses with notifications">
+                <div class="caption">
+                    <span class="screenshot-badge">Notifications</span>
+                    <h4>Phone Alerts</h4>
+                    <p>Texts, emails, and other phone notifications appear on glasses</p>
+                </div>
+            </div>
+
+            <div class="screenshot-card">
+                <img src="screenshots/glasses/glasses_screenshot_6.png" alt="Glasses compass view">
+                <div class="caption">
+                    <span class="screenshot-badge">Compass</span>
+                    <h4>Orientation Display</h4>
+                    <p>Bearing degrees and compass showing which way is north</p>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="text-align: center; color: var(--primary); margin-top: 5rem; margin-bottom: 2rem;">
+            <i class="fas fa-mobile-alt"></i> Phone Interface
+        </h3>
+
+        <div class="screenshot-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
+            <div class="screenshot-card">
+                <img src="screenshots/phone/phone_search_interface.png" alt="Phone search interface">
+                <div class="caption">
+                    <span class="screenshot-badge">Search & Navigation</span>
+                    <h4>Easy Address Search</h4>
+                    <p>Type any address or place name, pick from results, start navigation with one tap</p>
+                </div>
             </div>
         </div>
     </section>

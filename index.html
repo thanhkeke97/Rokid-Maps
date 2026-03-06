@@ -416,6 +416,61 @@
             margin-bottom: 1rem;
         }
 
+        /* Support Section */
+        .support-section {
+            background: var(--card-bg);
+            padding: 5rem 2rem;
+            text-align: center;
+            border-radius: 30px;
+            margin: 4rem 2rem;
+            border: 1px solid rgba(0, 255, 136, 0.1);
+        }
+
+        .support-section h2 {
+            font-size: 2.5rem;
+            color: var(--text);
+            margin-bottom: 1.5rem;
+        }
+
+        .support-section p {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .coffee-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--gradient);
+            color: #000;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .coffee-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .coffee-btn i {
+            font-size: 1.3rem;
+        }
+
+        .coffee-heart {
+            color: var(--primary);
+            margin-top: 1.5rem;
+        }
+
         /* CTA Section */
         .cta-section {
             background: var(--gradient);
@@ -511,6 +566,7 @@
             <li><a href="#features">Features</a></li>
             <li><a href="#how-it-works">How It Works</a></li>
             <li><a href="#screenshots">Screenshots</a></li>
+            <li><a href="#support">Support</a></li>
             <li><a href="#download">Download</a></li>
         </ul>
         <a href="https://github.com/chartmann1590/Rokid-Maps" class="cta-btn">
@@ -805,6 +861,19 @@
                     <p>Type any address or place name, pick from results, start navigation with one tap</p>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <section id="support" class="support-section">
+        <h2><i class="fas fa-heart"></i> Support Development</h2>
+        <p>
+            Rokid Maps is free and open-source. If you find it useful and want to support continued development, consider buying me a coffee. Your support helps keep this project free and accessible to everyone.
+        </p>
+        <a href="https://buymeacoffee.com/charleshartmann" class="coffee-btn" target="_blank" rel="noopener noreferrer">
+            <i class="fas fa-mug-hot"></i> Buy Me A Coffee
+        </a>
+        <div class="coffee-heart">
+            <i class="fas fa-coffee"></i> Every coffee helps! ☕
         </div>
     </section>
 

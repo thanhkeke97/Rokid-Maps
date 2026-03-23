@@ -45,6 +45,7 @@ class HudStreamingService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val LOCATION_INTERVAL_MS = 1000L
         private const val MAX_TILE_BYTES = 512 * 1024 // 512KB cap to avoid OOM on bad/corrupt responses
+        private const val EXTERNAL_NAV_STALE_MS = 90_000L
     }
 
     inner class LocalBinder : Binder() {
@@ -80,6 +81,10 @@ class HudStreamingService : Service() {
 
     var navigationManager: NavigationManager? = null
     var uiCallback: NavigationCallback? = null
+    @Volatile private var externalStepInstruction = ""
+    @Volatile private var externalStepManeuver = ""
+    @Volatile private var externalStepDistance = -1.0
+    @Volatile private var externalStepUpdatedAtMs = 0L
 
     override fun onBind(intent: Intent?): IBinder = binder
 
@@ -165,6 +170,7 @@ class HudStreamingService : Service() {
     }
 
     fun startNavigation(destLat: Double, destLng: Double) {
+        clearExternalNavigationStep(notifyClient = false)
         navigationManager?.startNavigation(destLat, destLng, lastLat, lastLng)
     }
 
@@ -177,14 +183,35 @@ class HudStreamingService : Service() {
 
     fun getLastLocation(): Pair<Double, Double> = Pair(lastLat, lastLng)
 
+    fun isNativeNavigationActive(): Boolean = navigationManager?.isNavigating == true
+
+    fun updateExternalNavigationStep(instruction: String, maneuver: String, distanceMeters: Double, iconData: String? = null) {
+        if (isNativeNavigationActive()) return
+        externalStepInstruction = instruction
+        externalStepManeuver = maneuver
+        externalStepDistance = distanceMeters
+        externalStepUpdatedAtMs = System.currentTimeMillis()
+        sendStep(instruction, maneuver, distanceMeters.coerceAtLeast(0.0), iconData)
+    }
+
+    fun clearExternalNavigationStep(notifyClient: Boolean = true) {
+        if (isNativeNavigationActive()) return
+        externalStepInstruction = ""
+        externalStepManeuver = ""
+        externalStepDistance = -1.0
+        externalStepUpdatedAtMs = 0L
+        if (notifyClient) sendStep("", "", 0.0, null)
+    }
+
     fun sendSettings(
         ttsEnabled: Boolean, useImperial: Boolean = false,
         useMiniMap: Boolean = false, miniMapStyle: String = "strip",
         streamNotifications: Boolean = true, showUpcomingSteps: Boolean = false,
         showTurnAlert: Boolean = false, tileCacheSizeMb: Int = 100,
-        showSpeed: Boolean = true, showSpeedLimit: Boolean = true
+        showSpeed: Boolean = true, showSpeedLimit: Boolean = true,
+        googleMapsMode: Boolean = false
     ) {
-        val msg = SettingsMessage(ttsEnabled, useImperial, useMiniMap, miniMapStyle, streamNotifications, showUpcomingSteps, showTurnAlert, tileCacheSizeMb, showSpeed, showSpeedLimit)
+        val msg = SettingsMessage(ttsEnabled, useImperial, useMiniMap, miniMapStyle, streamNotifications, showUpcomingSteps, showTurnAlert, tileCacheSizeMb, showSpeed, showSpeedLimit, googleMapsMode)
         cachedSettings = msg
         broadcast(ProtocolCodec.encodeSettings(msg))
     }
@@ -260,8 +287,8 @@ class HudStreamingService : Service() {
         ))
     }
 
-    fun sendStep(instruction: String, maneuver: String, distance: Double) {
-        broadcast(ProtocolCodec.encodeStep(StepMessage(instruction, maneuver, distance)))
+    fun sendStep(instruction: String, maneuver: String, distance: Double, iconData: String? = null) {
+        broadcast(ProtocolCodec.encodeStep(StepMessage(instruction, maneuver, distance, iconData)))
     }
 
     fun sendStepsList() {
@@ -472,13 +499,22 @@ class HudStreamingService : Service() {
     private fun onLocationUpdate(loc: Location) {
         lastLat = loc.latitude
         lastLng = loc.longitude
-        val distToNext = navigationManager?.getDistanceToNextStep(loc.latitude, loc.longitude) ?: -1.0
+        val distToNext = when {
+            isNativeNavigationActive() -> navigationManager?.getDistanceToNextStep(loc.latitude, loc.longitude) ?: -1.0
+            isExternalNavigationFresh() -> externalStepDistance
+            else -> -1.0
+        }
         val speedLimit = speedLimitClient.getCachedSpeedLimit(loc.latitude, loc.longitude)
         broadcast(ProtocolCodec.encodeState(
             StateMessage(loc.latitude, loc.longitude, loc.bearing, loc.speed, loc.accuracy,
                 speedLimitKmh = speedLimit, distToNextStep = distToNext)
         ))
         navigationManager?.onLocationUpdate(loc.latitude, loc.longitude)
+    }
+
+    private fun isExternalNavigationFresh(): Boolean {
+        return externalStepInstruction.isNotBlank()
+                && (System.currentTimeMillis() - externalStepUpdatedAtMs) <= EXTERNAL_NAV_STALE_MS
     }
 
     private fun buildNotification(): Notification {

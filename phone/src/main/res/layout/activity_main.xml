@@ -734,15 +734,6 @@
                         android:layout_marginTop="2dp" />
 
                     <TextView
-                        android:id="@+id/googleMapsAccessText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Enable Accessibility for more accurate left/right detection"
-                        android:textColor="#757575"
-                        android:textSize="12sp" />
-
-                    <TextView
                         android:id="@+id/googleMapsDebugText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -766,20 +757,6 @@
                     android:textColor="#00E676"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:layout_marginEnd="8dp"
-                    android:paddingHorizontal="18dp" />
-
-                <Button
-                    android:id="@+id/btnAccessibilityAccess"
-                    android:layout_width="wrap_content"
-                    android:layout_height="34dp"
-                    android:minWidth="72dp"
-                    android:text="Grant"
-                    android:backgroundTint="#2A2A2A"
-                    android:textColor="#00E676"
-                    android:textSize="12sp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:paddingHorizontal="18dp" />

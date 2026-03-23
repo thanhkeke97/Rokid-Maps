@@ -722,7 +722,8 @@ class HudView @JvmOverloads constructor(
     }
 
     private fun formatDistance(meters: Double): String {
-        if (meters < 1) return ""
+        if (meters < 0) return ""
+        if (meters < 1) return "Now"
         return if (state.useImperial) {
             val feet = meters * 3.28084
             val miles = meters / 1609.344

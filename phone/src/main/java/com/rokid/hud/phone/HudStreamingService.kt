@@ -56,7 +56,7 @@ class HudStreamingService : Service() {
     private var serverSocket: BluetoothServerSocket? = null
     private val clients = CopyOnWriteArrayList<BufferedWriter>()
     private val clientSessions = CopyOnWriteArrayList<ClientSession>()
-    private val tileExecutor = Executors.newFixedThreadPool(4)
+    private var tileExecutor = Executors.newFixedThreadPool(4)
     private val TILE_URLS = arrayOf(
         "https://basemaps.cartocdn.com/dark_all/%d/%d/%d@2x.png",
         "https://basemaps.cartocdn.com/dark_all/%d/%d/%d.png",
@@ -84,6 +84,7 @@ class HudStreamingService : Service() {
     @Volatile private var externalStepInstruction = ""
     @Volatile private var externalStepManeuver = ""
     @Volatile private var externalStepDistance = -1.0
+    @Volatile private var externalStepIconData: String? = null
     @Volatile private var externalStepUpdatedAtMs = 0L
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -92,6 +93,9 @@ class HudStreamingService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
         if (!running) {
             running = true
+            if (tileExecutor.isShutdown) {
+                tileExecutor = Executors.newFixedThreadPool(4)
+            }
             diskTileCache = DiskTileCache(applicationContext)
             acquireWakeLock()
             initNavigation()
@@ -99,6 +103,10 @@ class HudStreamingService : Service() {
             startLocationUpdates()
         }
         return START_STICKY
+    }
+
+    fun shutdownStreaming() {
+        stopStreamingRuntime(removeNotification = true)
     }
 
     private fun acquireWakeLock() {
@@ -125,6 +133,11 @@ class HudStreamingService : Service() {
     }
 
     override fun onDestroy() {
+        stopStreamingRuntime(removeNotification = true)
+        super.onDestroy()
+    }
+
+    private fun stopStreamingRuntime(removeNotification: Boolean) {
         running = false
         try {
             wakeLock?.let { if (it.isHeld) it.release() }
@@ -132,7 +145,9 @@ class HudStreamingService : Service() {
         wakeLock = null
         navigationManager?.stopNavigation()
         locationCallback?.let { fusedLocationClient?.removeLocationUpdates(it) }
+        locationCallback = null
         try { serverSocket?.close() } catch (_: Exception) {}
+        serverSocket = null
         for (s in clientSessions) {
             try { s.socket.close() } catch (_: Exception) {}
         }
@@ -141,7 +156,13 @@ class HudStreamingService : Service() {
         clients.clear()
         tileExecutor.shutdownNow()
         diskTileCache?.shutdown()
-        super.onDestroy()
+        diskTileCache = null
+        clearExternalNavigationStep(notifyClient = false)
+        if (removeNotification) {
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } catch (_: Exception) {}
+        }
     }
 
     private fun initNavigation() {
@@ -190,6 +211,7 @@ class HudStreamingService : Service() {
         externalStepInstruction = instruction
         externalStepManeuver = maneuver
         externalStepDistance = distanceMeters
+        externalStepIconData = iconData
         externalStepUpdatedAtMs = System.currentTimeMillis()
         sendStep(instruction, maneuver, distanceMeters.coerceAtLeast(0.0), iconData)
     }
@@ -199,6 +221,7 @@ class HudStreamingService : Service() {
         externalStepInstruction = ""
         externalStepManeuver = ""
         externalStepDistance = -1.0
+        externalStepIconData = null
         externalStepUpdatedAtMs = 0L
         if (notifyClient) sendStep("", "", 0.0, null)
     }
@@ -312,9 +335,39 @@ class HudStreamingService : Service() {
                 writer.write(ProtocolCodec.encodeWifiCreds(it)); writer.newLine(); writer.flush()
                 Log.i(TAG, "Re-sent wifi creds to new client")
             }
+            resendCurrentStep(writer)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to re-send cached state: ${e.message}")
         }
+    }
+
+    private fun resendCurrentStep(writer: BufferedWriter) {
+        val nav = navigationManager
+        val stepMessage = when {
+            nav?.isNavigating == true && nav.currentInstruction.isNotBlank() -> {
+                StepMessage(
+                    nav.currentInstruction,
+                    nav.currentManeuver,
+                    nav.currentStepDistance,
+                    null
+                )
+            }
+            isExternalNavigationFresh() && externalStepInstruction.isNotBlank() -> {
+                StepMessage(
+                    externalStepInstruction,
+                    externalStepManeuver,
+                    externalStepDistance.coerceAtLeast(0.0),
+                    externalStepIconData
+                )
+            }
+            else -> null
+        }
+
+        stepMessage ?: return
+        writer.write(ProtocolCodec.encodeStep(stepMessage))
+        writer.newLine()
+        writer.flush()
+        Log.i(TAG, "Re-sent current step to new client")
     }
 
     private fun broadcast(json: String) {

@@ -1,7 +1,6 @@
 package com.rokid.hud.phone
 
 import android.Manifest
-import android.accessibilityservice.AccessibilityService
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
@@ -53,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         private const val PREF_SHOW_SPEED_LIMIT = "show_speed_limit"
         private const val PREF_GOOGLE_MAPS_MODE = "google_maps_mode"
         private const val PREF_LAST_GMAPS_DEBUG = "last_gmaps_debug"
+        private const val PREF_STREAMING_ACTIVE = "streaming_active"
         private const val PREFS_GLASSES = "rokid_glasses"
         private const val PREFS_HUD = "rokid_hud_prefs"
     }
@@ -108,8 +108,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnNotifAccess: Button
     private lateinit var btnGoogleMapsMode: Button
     private lateinit var googleMapsModeText: TextView
-    private lateinit var btnAccessibilityAccess: Button
-    private lateinit var googleMapsAccessText: TextView
     private lateinit var googleMapsDebugText: TextView
     private lateinit var switchStreamNotifications: Switch
     private lateinit var switchTurnAlert: Switch
@@ -266,8 +264,6 @@ class MainActivity : AppCompatActivity() {
         btnNotifAccess = findViewById(R.id.btnNotifAccess)
         btnGoogleMapsMode = findViewById(R.id.btnGoogleMapsMode)
         googleMapsModeText = findViewById(R.id.googleMapsModeText)
-        btnAccessibilityAccess = findViewById(R.id.btnAccessibilityAccess)
-        googleMapsAccessText = findViewById(R.id.googleMapsAccessText)
         googleMapsDebugText = findViewById(R.id.googleMapsDebugText)
         switchStreamNotifications = findViewById(R.id.switchStreamNotifications)
 
@@ -306,13 +302,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        btnStart.setOnClickListener { checkPermissionsAndStart() }
+        btnStart.setOnClickListener {
+            if (streaming) stopStreaming() else checkPermissionsAndStart()
+        }
         btnScanGlasses.setOnClickListener {
             startActivity(Intent(this, DeviceScanActivity::class.java))
         }
         btnUpdateGlassesApp.setOnClickListener { openApkPicker() }
         btnGoogleMapsMode.setOnClickListener { toggleGoogleMapsMode() }
-        btnAccessibilityAccess.setOnClickListener { openAccessibilitySettings() }
 
         btnSearch.setOnClickListener { performSearch() }
         searchInput.setOnEditorActionListener { _, _, _ -> performSearch(); true }
@@ -503,9 +500,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStreamingUi() {
         if (streaming) {
-            btnStart.text = "Streaming"
-            btnStart.isEnabled = false
-            btnStart.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF2E7D32.toInt())
+            btnStart.text = "Stop Streaming"
+            btnStart.isEnabled = true
+            btnStart.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFC62828.toInt())
+            btnStart.setTextColor(0xFFFFFFFF.toInt())
             statusText.text = if (isGoogleMapsModeEnabled()) {
                 "Google Maps Mode active — start navigation in Google Maps"
             } else {
@@ -515,6 +513,7 @@ class MainActivity : AppCompatActivity() {
             btnStart.text = "Start Streaming"
             btnStart.isEnabled = true
             btnStart.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF00E676.toInt())
+            btnStart.setTextColor(0xFF000000.toInt())
             statusText.text = "Tap Start Streaming to begin"
         }
     }
@@ -817,14 +816,44 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startStreaming() {
+        getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putBoolean(PREF_STREAMING_ACTIVE, true).apply()
         val intent = Intent(this, HudStreamingService::class.java)
         ContextCompat.startForegroundService(this, intent)
         bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        sendBroadcast(Intent(HudNotificationListenerService.ACTION_STREAMING_STATE_CHANGED).apply {
+            setPackage(packageName)
+            putExtra(HudNotificationListenerService.EXTRA_STREAMING_ACTIVE, true)
+        })
         streaming = true
         updateStreamingUi()
         updateGoogleMapsModeUi()
         btAudioRouter.connectAudio()
         promptBatteryOptimizationIfNeeded()
+    }
+
+    private fun stopStreaming() {
+        getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putBoolean(PREF_STREAMING_ACTIVE, false).apply()
+        sendBroadcast(Intent(HudNotificationListenerService.ACTION_STREAMING_STATE_CHANGED).apply {
+            setPackage(packageName)
+            putExtra(HudNotificationListenerService.EXTRA_STREAMING_ACTIVE, false)
+        })
+        stopNavigation()
+        service?.uiCallback = null
+        service?.shutdownStreaming()
+
+        if (bound) {
+            unbindService(connection)
+            bound = false
+        }
+
+        stopService(Intent(this, HudStreamingService::class.java))
+        service = null
+        streaming = false
+
+        updateStreamingUi()
+        updateGoogleMapsModeUi()
+        updateCacheSizeText()
+        Toast.makeText(this, "Streaming stopped", Toast.LENGTH_SHORT).show()
     }
 
     private fun promptBatteryOptimizationIfNeeded() {
@@ -853,14 +882,38 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }
 
-    private fun openAccessibilitySettings() {
-        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-    }
-
     private fun isGoogleMapsModeEnabled(): Boolean =
         getSharedPreferences(PREFS_HUD, MODE_PRIVATE).getBoolean(PREF_GOOGLE_MAPS_MODE, false)
 
+    private fun enforceGoogleMapsModePermission(showToast: Boolean = false): Boolean {
+        val notificationAccessGranted = isNotificationListenerEnabled()
+        if (notificationAccessGranted) return true
+
+        val prefs = getSharedPreferences(PREFS_HUD, MODE_PRIVATE)
+        if (prefs.getBoolean(PREF_GOOGLE_MAPS_MODE, false)) {
+            prefs.edit().putBoolean(PREF_GOOGLE_MAPS_MODE, false).apply()
+            service?.clearExternalNavigationStep()
+            sendCurrentSettings()
+        }
+
+        if (showToast) {
+            Toast.makeText(
+                this,
+                "Grant notification access before enabling Google Maps Mode",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        return false
+    }
+
     private fun toggleGoogleMapsMode() {
+        val isCurrentlyEnabled = isGoogleMapsModeEnabled()
+        if (!isCurrentlyEnabled && !enforceGoogleMapsModePermission(showToast = true)) {
+            updateNotifStatus()
+            updateGoogleMapsModeUi()
+            return
+        }
+
         val enabled = !isGoogleMapsModeEnabled()
         getSharedPreferences(PREFS_HUD, MODE_PRIVATE).edit().putBoolean(PREF_GOOGLE_MAPS_MODE, enabled).apply()
         if (enabled) {
@@ -879,31 +932,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateGoogleMapsModeUi() {
+        val notificationAccessGranted = enforceGoogleMapsModePermission()
         val enabled = isGoogleMapsModeEnabled()
-        val accessibilityEnabled = isGoogleMapsAccessibilityEnabled()
-        googleMapsModeText.text = if (enabled) {
+        googleMapsModeText.text = if (!notificationAccessGranted) {
+            "Google Maps Mode requires notification access so turn-by-turn directions can be read from Google Maps notifications."
+        } else if (enabled) {
             "Google Maps notifications drive the glasses HUD. Start navigation in Google Maps on your phone."
         } else {
             "Use Google Maps turn-by-turn notifications instead of Rokid Maps native routing."
         }
-        googleMapsAccessText.text = if (accessibilityEnabled) {
-            "Accessibility bridge enabled"
-        } else {
-            "Enable Accessibility for more accurate left/right detection"
-        }
-        googleMapsAccessText.setTextColor(if (accessibilityEnabled) 0xFF66BB6A.toInt() else 0xFF757575.toInt())
         val debugText = getSharedPreferences(PREFS_HUD, MODE_PRIVATE)
             .getString(PREF_LAST_GMAPS_DEBUG, "No Google Maps notification captured yet")
             ?: "No Google Maps notification captured yet"
         googleMapsDebugText.text = debugText
         googleMapsDebugText.visibility = if (enabled) View.VISIBLE else View.GONE
         btnGoogleMapsMode.text = if (enabled) "On" else "Off"
-        btnAccessibilityAccess.text = if (accessibilityEnabled) "Granted" else "Grant"
-        btnAccessibilityAccess.isEnabled = !accessibilityEnabled
+        btnGoogleMapsMode.isEnabled = notificationAccessGranted || enabled
         btnGoogleMapsMode.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            if (enabled) 0xFF00E676.toInt() else 0xFF2A2A2A.toInt()
+            when {
+                enabled -> 0xFF00E676.toInt()
+                notificationAccessGranted -> 0xFF2A2A2A.toInt()
+                else -> 0xFF1B1B1B.toInt()
+            }
         )
-        btnGoogleMapsMode.setTextColor(if (enabled) 0xFF000000.toInt() else 0xFF00E676.toInt())
+        btnGoogleMapsMode.setTextColor(
+            when {
+                enabled -> 0xFF000000.toInt()
+                notificationAccessGranted -> 0xFF00E676.toInt()
+                else -> 0xFF616161.toInt()
+            }
+        )
         if (enabled) {
             navStatus.visibility = View.GONE
             btnNavigate.text = "Use Google Maps"
@@ -914,7 +972,9 @@ class MainActivity : AppCompatActivity() {
         } else {
             btnNavigate.text = "Start Navigation"
             btnNavigate.isEnabled = true
-            if (streaming) {
+            if (!notificationAccessGranted) {
+                statusText.text = "Grant notification access to enable Google Maps Mode"
+            } else if (streaming) {
                 statusText.text = "Streaming to glasses — search a destination"
             } else {
                 statusText.text = "Tap Start Streaming to begin"
@@ -925,12 +985,6 @@ class MainActivity : AppCompatActivity() {
     private fun isNotificationListenerEnabled(): Boolean {
         val cn = ComponentName(this, HudNotificationListenerService::class.java)
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-        return flat?.contains(cn.flattenToString()) == true
-    }
-
-    private fun isGoogleMapsAccessibilityEnabled(): Boolean {
-        val cn = ComponentName(this, GoogleMapsAccessibilityService::class.java)
-        val flat = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         return flat?.contains(cn.flattenToString()) == true
     }
 

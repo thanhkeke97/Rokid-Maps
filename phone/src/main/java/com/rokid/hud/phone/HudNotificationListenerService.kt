@@ -9,6 +9,8 @@ import android.graphics.drawable.Icon
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.service.notification.NotificationListenerService
@@ -24,20 +26,92 @@ class HudNotificationListenerService : NotificationListenerService() {
         private const val GOOGLE_MAPS_PACKAGE = "com.google.android.apps.maps"
         private const val PREFS_HUD = "rokid_hud_prefs"
         private const val PREF_LAST_GMAPS_DEBUG = "last_gmaps_debug"
+        private const val PREF_STREAMING_ACTIVE = "streaming_active"
+        const val ACTION_STREAMING_STATE_CHANGED = "com.rokid.hud.phone.ACTION_STREAMING_STATE_CHANGED"
+        const val EXTRA_STREAMING_ACTIVE = "streaming_active"
     }
 
     private var streamingService: HudStreamingService? = null
     private var bound = false
+    private var receiverRegistered = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             streamingService = (service as HudStreamingService.LocalBinder).getService()
             bound = true
+            syncActiveGoogleMapsNotification()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             streamingService = null
             bound = false
+        }
+    }
+
+    private val streamingStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val active = intent?.getBooleanExtra(EXTRA_STREAMING_ACTIVE, false) == true
+            if (active) {
+                bindStreamingService()
+                syncActiveGoogleMapsNotification()
+            } else {
+                unbindStreamingService()
+            }
+        }
+    }
+
+    private fun isStreamingActive(): Boolean {
+        return getSharedPreferences(PREFS_HUD, Context.MODE_PRIVATE)
+            .getBoolean(PREF_STREAMING_ACTIVE, false)
+    }
+
+    private fun bindStreamingService() {
+        if (bound) return
+        val intent = Intent(this, HudStreamingService::class.java)
+        val boundNow = bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        Log.i(TAG, "bindStreamingService: bound=$boundNow")
+    }
+
+    private fun unbindStreamingService() {
+        if (!bound) return
+        try {
+            unbindService(connection)
+        } catch (_: Exception) {
+        }
+        streamingService = null
+        bound = false
+        Log.i(TAG, "unbindStreamingService")
+    }
+
+    private fun ensureStreamingServiceForActiveSession(): Boolean {
+        if (!isStreamingActive()) {
+            unbindStreamingService()
+            return false
+        }
+        if (!bound || streamingService == null) {
+            bindStreamingService()
+            return streamingService != null
+        }
+        return true
+    }
+
+    private fun syncActiveGoogleMapsNotification() {
+        if (!isStreamingActive() || !isGoogleMapsModeEnabled()) return
+        if (!bound || streamingService == null) return
+
+        val activeGoogleMapsNotification = try {
+            activeNotifications?.firstOrNull { it.packageName == GOOGLE_MAPS_PACKAGE }
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to inspect active notifications: ${e.message}")
+            null
+        }
+
+        if (activeGoogleMapsNotification != null) {
+            Log.i(TAG, "Resyncing active Google Maps notification")
+            onNotificationPosted(activeGoogleMapsNotification)
+        } else {
+            streamingService?.clearExternalNavigationStep()
+            saveGoogleMapsDebug("noActiveGoogleMapsNotification")
         }
     }
 
@@ -150,22 +224,33 @@ class HudNotificationListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        val intent = Intent(this, HudStreamingService::class.java)
-        bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        if (!receiverRegistered) {
+            registerReceiver(streamingStateReceiver, IntentFilter(ACTION_STREAMING_STATE_CHANGED), Context.RECEIVER_NOT_EXPORTED)
+            receiverRegistered = true
+        }
+        if (isStreamingActive()) {
+            bindStreamingService()
+            syncActiveGoogleMapsNotification()
+        }
         Log.i(TAG, "Notification listener connected")
     }
 
     override fun onListenerDisconnected() {
-        if (bound) {
-            unbindService(connection)
-            bound = false
+        if (receiverRegistered) {
+            try {
+                unregisterReceiver(streamingStateReceiver)
+            } catch (_: Exception) {
+            }
+            receiverRegistered = false
         }
+        unbindStreamingService()
         super.onListenerDisconnected()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
         if (sbn.packageName == packageName) return
+        if (!ensureStreamingServiceForActiveSession()) return
 
         val notification = sbn.notification
         val extras = notification.extras
@@ -212,6 +297,7 @@ class HudNotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         sbn ?: return
+        if (!isStreamingActive()) return
         if (isGoogleMapsModeEnabled() && sbn.packageName == GOOGLE_MAPS_PACKAGE) {
             streamingService?.clearExternalNavigationStep()
             saveGoogleMapsDebug("notificationRemoved")

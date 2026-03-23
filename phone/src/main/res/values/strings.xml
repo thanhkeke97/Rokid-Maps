@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Rokid HUD Maps</string>
-    <string name="google_maps_accessibility_desc">Read Google Maps navigation cues for Rokid HUD</string>
 </resources>
